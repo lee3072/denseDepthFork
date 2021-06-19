@@ -5,4 +5,5 @@
 *.zip
 data_ori.py
 *.h5
+/run
 
