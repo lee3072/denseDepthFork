@@ -22,7 +22,7 @@ from data import getTrainingTestingData
 #     def __iter__(self):
 #         return self.read_next_image()
 
-model = torch.load("eval/79model.h5")
+model = torch.load("eval_new_half/125model.h5")
 model.eval()
 # image_path = "test_load_model_input.png"
 # buffer = queue.Queue()
@@ -31,17 +31,17 @@ model.eval()
 # dataset = MyDataset(buffer)
 # dataloader = torch.utils.data.DataLoader(dataset, batch_size=1)
 train_loader, test_loader = getTrainingTestingData(batch_size=1)
-
+loss_scale = 100
+depth_scale = 0.0002500000118743628 * loss_scale
 for i, sample_batched in enumerate(test_loader):
     # Prepare sample and target
     image = torch.autograd.Variable(sample_batched['image'].cuda())
     depth = torch.autograd.Variable(sample_batched['depth'].cuda(non_blocking=True))
 
     output = model(image.cuda()) # data is one-image batch of size [1,3,H,W] where 3 - number of color channels
-    output_n = DepthNorm(output)
-    output = colorize(vutils.make_grid(output_n.data, nrow=4, normalize=False))
-    output = np.moveaxis(output, 0, -1)
-    cv2.imshow("frame",output)
+    output2 = output.detach().cpu().numpy()[0][0] * depth_scale
+    depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(output2, alpha=255/output2.max()), cv2.COLORMAP_JET)
+    cv2.imshow("frame",depth_colormap)
     if cv2.waitKey(1) & 0xFF == ord('w'):
             break
     while True:

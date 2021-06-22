@@ -27,18 +27,23 @@ class Decoder(nn.Module):
         self.up2 = UpSample(skip_input=features//2 + 128,  output_features=features//4)
         self.up3 = UpSample(skip_input=features//4 + 64,  output_features=features//8)
         self.up4 = UpSample(skip_input=features//8 + 64,  output_features=features//16)
+        self.up5 = UpSample(skip_input=features//16 + 3,  output_features=features//32)
 
-        self.conv3 = nn.Conv2d(features//16, 1, kernel_size=3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(features//32, 1, kernel_size=3, stride=1, padding=1)
 
     def forward(self, features):
-        x_block0, x_block1, x_block2, x_block3, x_block4 = features[3], features[4], features[6], features[8], features[12]
-        x_d0 = self.conv2(F.relu(x_block4))
+        # for i in range(0, 13):
+        #     print("feature"+str(i)+":",features[i].shape)
+        x_block0, x_block1, x_block2, x_block3, x_block4, x_block5 = features[0], features[3], features[4], features[6], features[8], features[12]
+        x_d0 = self.conv2(F.relu(x_block5))
 
-        x_d1 = self.up1(x_d0, x_block3)
-        x_d2 = self.up2(x_d1, x_block2)
-        x_d3 = self.up3(x_d2, x_block1)
-        x_d4 = self.up4(x_d3, x_block0)
-        return self.conv3(x_d4)
+        x_d1 = self.up1(x_d0, x_block4)
+        x_d2 = self.up2(x_d1, x_block3)
+        x_d3 = self.up3(x_d2, x_block2)
+        x_d4 = self.up4(x_d3, x_block1)
+        x_d5 = self.up5(x_d4, x_block0)
+        return self.conv3(x_d5)
+        # return self.conv3(x_d4)
 
 class Encoder(nn.Module):
     def __init__(self):
@@ -47,7 +52,8 @@ class Encoder(nn.Module):
 
     def forward(self, x):
         features = [x]
-        for k, v in self.original_model.features._modules.items(): features.append( v(features[-1]) )
+        for k, v in self.original_model.features._modules.items(): 
+            features.append( v(features[-1]) )
         return features
 
 class PTModel(nn.Module):

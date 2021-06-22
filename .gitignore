@@ -6,4 +6,6 @@
 data_ori.py
 *.h5
 /runs
-
+/data
+/eval_old
+/eval_new_half

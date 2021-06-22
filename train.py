@@ -10,7 +10,7 @@ from tensorboardX import SummaryWriter
 
 from model import PTModel
 from loss import ssim
-from data import getTrainingTestingData
+from data import getTrainingTestingData, loss_scale
 from utils import AverageMeter, DepthNorm, colorize
 import cv2
 import numpy as np
@@ -37,14 +37,15 @@ def main():
     # Load data
     train_loader, test_loader = getTrainingTestingData(batch_size=batch_size)
 
-
-
+    test_loader = iter(test_loader)
+    sample_batched = next(test_loader)
     # Logging
     writer = SummaryWriter(comment='{}-lr{}-e{}-bs{}'.format(prefix, args.lr, args.epochs, args.bs), flush_secs=30)
 
     # Loss
     l1_criterion = nn.L1Loss()
-
+    tf = open('eval/train_loss_avg.txt','w')
+    ef = open('eval/eval_loss_avg.txt','w')
     # Start training...
     for epoch in range(args.epochs):
         batch_time = AverageMeter()
@@ -76,6 +77,9 @@ def main():
 
             # Predict%
             output = model(image)
+            # print("output.shape:",output.shape)
+            # print("depth.shape:",depth.shape)
+            # exit()
             # Compute the loss
             # l_depth = l1_criterion(output, depth_n)
             # l_ssim = torch.clamp((1 - ssim(output, depth_n, val_range = 1000.0 / 10.0)) * 0.5, 0, 1)
@@ -109,23 +113,28 @@ def main():
 
             # if i % 300 == 0:
             if i % 20 == 0:
-                LogProgress(model, writer, test_loader, niter)
+                LogProgress(model, writer, sample_batched, niter)
                 # ImageLogProgress(model, writer, test_loader, niter)
             # if i % 1200 == 0:    
         # Record epoch's intermediate results
-        LogProgress(model, writer, test_loader, niter)
+        LogProgress(model, writer, sample_batched, niter)
         writer.add_scalar('Train/Loss.avg', losses.avg, epoch)
-        writer.add_scalar('Test/Loss.avg', losses.avg, epoch)
-        ImageLogProgress(model, writer, test_loader, epoch)
-        torch.save(model,"eval2/"+str(epoch)+"model.h5")
+        writer.add_scalar('Test/Loss.avg', eval_losses.avg, epoch)
+        print(losses.avg,file=tf, flush=True)
+        print(eval_losses.avg,file=ef, flush=True)
+        print("Train Loss: ",losses.avg)
+        print("Eval  Loss: ",eval_losses.avg)
+        ImageLogProgress(model, writer, sample_batched, epoch)
+        sample_batched = next(test_loader)
+        torch.save(model,"eval/"+str(epoch)+"model.h5")
 
 def LogProgress(model, writer, test_loader, epoch):
     global eval_losses
     l1_criterion = nn.L1Loss()
-    sequential = test_loader
-    sample_batched = next(iter(sequential))
-    image = torch.autograd.Variable(sample_batched['image'].cuda())
-    depth = torch.autograd.Variable(sample_batched['depth'].cuda(non_blocking=True))
+    # sequential = test_loader
+    # sample_batched = next(sequential)
+    image = torch.autograd.Variable(test_loader['image'].cuda())
+    depth = torch.autograd.Variable(test_loader['depth'].cuda(non_blocking=True))
     depth_n = DepthNorm( depth )
     if epoch == 0: writer.add_image('Train.1.Image', vutils.make_grid(image.data, nrow=6, normalize=True), epoch)
     if epoch == 0: writer.add_image('Train.2.Depth', colorize(vutils.make_grid(depth_n.data, nrow=6, normalize=False)), epoch)
@@ -145,15 +154,21 @@ def LogProgress(model, writer, test_loader, epoch):
 
 def ImageLogProgress(model, writer, test_loader, epoch):
     model.eval()
-    sequential = test_loader
-    sample_batched = next(iter(sequential))
-    image = torch.autograd.Variable(sample_batched['image'].cuda())
-    depth = torch.autograd.Variable(sample_batched['depth'].cuda(non_blocking=True))
-    output_n = DepthNorm( model(image) )
-    output = colorize(vutils.make_grid(output_n.data, nrow=1, normalize=False))
-    output = np.moveaxis(output, 0, -1)
-    # print(output.shape)
-    cv2.imwrite("eval2/"+str(epoch)+'.png',output)
+    # sequential = test_loader
+    # sample_batched = next(sequential)
+    image = torch.autograd.Variable(test_loader['image'].cuda())
+    depth = torch.autograd.Variable(test_loader['depth'].cuda(non_blocking=True))
+    output = model(image)
+    depth_scale = 0.0002500000118743628 * loss_scale
+    output_n = output.detach().cpu().numpy()[0][0] * depth_scale
+    depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(output_n, alpha=255/output_n.max()), cv2.COLORMAP_JET)
+    depth_n = depth.detach().cpu().numpy()[0][0] * depth_scale
+    depth_true_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_n, alpha=255/depth_n.max()), cv2.COLORMAP_JET)
+    diff = depth_n - output_n
+    diff_colormap = cv2.applyColorMap(cv2.convertScaleAbs(diff, alpha=255/diff.max()), cv2.COLORMAP_JET)
+    cv2.imwrite("eval/"+str(epoch)+'.png',depth_colormap)
+    cv2.imwrite("eval/"+str(epoch)+'_diff.png',diff_colormap)
+    cv2.imwrite("eval/"+str(epoch)+"depth_truth.png",depth_true_colormap)
     del image
     del depth
     del output_n
