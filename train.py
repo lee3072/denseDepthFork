@@ -22,7 +22,7 @@ def main():
     parser = argparse.ArgumentParser(description='High Quality Monocular Depth Estimation via Transfer Learning')
     parser.add_argument('--epochs', default=20, type=int, help='number of total epochs to run')
     parser.add_argument('--lr', '--learning-rate', default=0.0001, type=float, help='initial learning rate')
-    parser.add_argument('--bs', default=4, type=int, help='batch size')
+    parser.add_argument('--bs', default=2, type=int, help='batch size')
     args = parser.parse_args()
 
     # Create model
@@ -35,7 +35,7 @@ def main():
     prefix = 'densenet_' + str(batch_size)
 
     # Load data
-    train_loader, test_loader = getTrainingTestingData(batch_size=batch_size)
+    train_loader, test_loader = getTrainingTestingData(batch_size=batch_size,folder="data")
 
     test_loader = iter(test_loader)
     sample_batched = next(test_loader)

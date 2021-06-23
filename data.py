@@ -54,13 +54,13 @@ class depthDatasetMemory(Dataset):
         return len(self.datalist)
 
 
-def getTrainingTestingData(batch_size):
+def getTrainingTestingData(batch_size, folder):
     train_list = list()
     eval_list = list()
-    with open("data/list_train.csv") as f:
+    with open(folder+"/list_train.csv") as f:
         for line in f:
             train_list.append(list(line.strip().split(',')))
-    with open("data/list_eval.csv") as f:
+    with open(folder+"/list_eval.csv") as f:
         for line in f:
             eval_list.append(list(line.strip().split(',')))
     # data, train_data_list, eval_data_list = loadZipToMem('realSense_data_csv.zip')

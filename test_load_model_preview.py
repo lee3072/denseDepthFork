@@ -10,7 +10,7 @@ from utils import DepthNorm, colorize
 from data import getTrainingTestingData
 
 
-model = torch.load("eval_new_half/125model.h5")
+model = torch.load("eval/249model.h5")
 model.eval()
 cap = cv2.VideoCapture(-1)
 while (True):
